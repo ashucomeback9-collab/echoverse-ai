@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSpeech } from "@/hooks/use-speech";
 import { Waveform } from "@/components/Waveform";
 import { VoiceLibrary, VOICE_PRESETS, pickVoiceForPreset } from "@/components/VoiceLibrary";
-import { VoiceVibes, applyVibeToText, type Vibe } from "@/components/VoiceVibes";
+import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -45,15 +45,13 @@ function Index() {
   const handleSpeak = () => {
     if (!text.trim()) return;
     setHighlight(null);
-    const spoken = applyVibeToText(text, vibe);
-    const effRate = vibe ? rate * vibe.rateMul : rate;
-    const effPitch = vibe ? pitch * vibe.pitchMul : pitch;
     speak({
-      text: spoken,
+      text,
       voice: selectedVoice,
-      rate: Math.max(0.1, Math.min(2, effRate)),
-      pitch: Math.max(0, Math.min(2, effPitch)),
+      rate: vibe ? vibe.rate : rate,
+      pitch: vibe ? vibe.pitch : pitch,
       volume,
+      sentencePause: vibe?.pause ?? 0,
       onBoundary: (start, len) => setHighlight({ start, len }),
       onEnd: () => setHighlight(null),
     });
