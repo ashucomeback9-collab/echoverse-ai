@@ -139,7 +139,10 @@ function Index() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-wider text-muted-foreground">Voice</label>
-              <Select value={selectedVoice?.voiceURI ?? ""} onValueChange={setVoiceURI}>
+              <Select
+                value={selectedVoice?.voiceURI ?? ""}
+                onValueChange={(v) => { setVoiceURI(v); setPresetId(null); }}
+              >
                 <SelectTrigger className="bg-background/40">
                   <SelectValue placeholder="Select a voice" />
                 </SelectTrigger>
