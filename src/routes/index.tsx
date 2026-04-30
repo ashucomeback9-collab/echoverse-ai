@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSpeech } from "@/hooks/use-speech";
 import { Waveform } from "@/components/Waveform";
 import { VoiceLibrary, VOICE_PRESETS, pickVoiceForPreset } from "@/components/VoiceLibrary";
+import { VoiceVibes, VIBES, applyVibeToText, type Vibe } from "@/components/VoiceVibes";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -18,6 +19,7 @@ function Index() {
   const [text, setText] = useState("Welcome to VoxWave. Type anything and hear it spoken in seconds.");
   const [voiceURI, setVoiceURI] = useState<string>("");
   const [presetId, setPresetId] = useState<string | null>(null);
+  const [vibe, setVibe] = useState<Vibe | null>(null);
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [volume, setVolume] = useState(1);
@@ -43,11 +45,14 @@ function Index() {
   const handleSpeak = () => {
     if (!text.trim()) return;
     setHighlight(null);
+    const spoken = applyVibeToText(text, vibe);
+    const effRate = vibe ? rate * vibe.rateMul : rate;
+    const effPitch = vibe ? pitch * vibe.pitchMul : pitch;
     speak({
-      text,
+      text: spoken,
       voice: selectedVoice,
-      rate,
-      pitch,
+      rate: Math.max(0.1, Math.min(2, effRate)),
+      pitch: Math.max(0, Math.min(2, effPitch)),
       volume,
       onBoundary: (start, len) => setHighlight({ start, len }),
       onEnd: () => setHighlight(null),
@@ -98,6 +103,8 @@ function Index() {
             if (v) setVoiceURI(v.voiceURI);
           }}
         />
+
+        <VoiceVibes activeId={vibe?.id ?? null} onSelect={setVibe} />
 
         <section className="glass rounded-3xl p-6 md:p-8 space-y-6">
           <div className="flex items-center justify-between">
