@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Drama, Heart, Mic, Skull, Trophy, CloudRain, BookOpen, Newspaper, Ghost, Sparkles } from "lucide-react";
+import { Drama, Heart, Skull, Trophy, CloudRain, BookOpen, Newspaper, Ghost, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Vibe {
@@ -7,38 +7,22 @@ export interface Vibe {
   name: string;
   description: string;
   icon: LucideIcon;
-  rateMul: number;   // multiplier on user rate
-  pitchMul: number;  // multiplier on user pitch
-  pause: "none" | "short" | "medium" | "long" | "suspense";
+  rate: number;   // absolute rate (0.1–2)
+  pitch: number;  // absolute pitch (0–2)
+  pause: number;  // ms pause between sentences
 }
 
 export const VIBES: Vibe[] = [
-  { id: "sincere",      name: "Sincere",      description: "Honest, grounded delivery.",                icon: Heart,      rateMul: 0.95, pitchMul: 0.98, pause: "short" },
-  { id: "dramatic",     name: "Dramatic",     description: "Slower pace, deeper tone, weighty pauses.", icon: Drama,      rateMul: 0.8,  pitchMul: 0.85, pause: "long" },
-  { id: "friendly",     name: "Friendly",     description: "Warm, upbeat, slightly higher pitch.",      icon: Sparkles,   rateMul: 1.05, pitchMul: 1.15, pause: "short" },
-  { id: "true-crime",   name: "True Crime",   description: "Slow, deep, suspenseful pauses.",           icon: Skull,      rateMul: 0.78, pitchMul: 0.8,  pause: "suspense" },
-  { id: "motivational", name: "Motivational", description: "Confident, energetic, uplifting.",          icon: Trophy,     rateMul: 1.1,  pitchMul: 1.1,  pause: "medium" },
-  { id: "sad",          name: "Sad",          description: "Slow, soft, low pitch.",                    icon: CloudRain,  rateMul: 0.78, pitchMul: 0.85, pause: "long" },
-  { id: "storytelling", name: "Storytelling", description: "Calm narration with natural beats.",        icon: BookOpen,   rateMul: 0.95, pitchMul: 1.0,  pause: "medium" },
-  { id: "news-anchor",  name: "News Anchor",  description: "Crisp, even, professional cadence.",        icon: Newspaper,  rateMul: 1.0,  pitchMul: 1.0,  pause: "short" },
-  { id: "horror",       name: "Horror",       description: "Whisper-slow, deep, eerie pauses.",         icon: Ghost,      rateMul: 0.7,  pitchMul: 0.75, pause: "suspense" },
+  { id: "sincere",      name: "Sincere",      description: "Honest, grounded delivery.",                icon: Heart,     rate: 0.85, pitch: 0.9,  pause: 300 },
+  { id: "dramatic",     name: "Dramatic",     description: "Slower pace, deeper tone, weighty pauses.", icon: Drama,     rate: 0.7,  pitch: 0.8,  pause: 600 },
+  { id: "friendly",     name: "Friendly",     description: "Warm, upbeat, slightly higher pitch.",      icon: Sparkles,  rate: 1.05, pitch: 1.2,  pause: 150 },
+  { id: "true-crime",   name: "True Crime",   description: "Slow, deep, suspenseful pauses.",           icon: Skull,     rate: 0.65, pitch: 0.75, pause: 800 },
+  { id: "motivational", name: "Motivational", description: "Confident, energetic, uplifting.",          icon: Trophy,    rate: 1.15, pitch: 1.1,  pause: 200 },
+  { id: "sad",          name: "Sad",          description: "Slow, soft, low pitch.",                    icon: CloudRain, rate: 0.75, pitch: 0.7,  pause: 500 },
+  { id: "storytelling", name: "Storytelling", description: "Calm narration with natural beats.",        icon: BookOpen,  rate: 0.9,  pitch: 1.0,  pause: 300 },
+  { id: "news-anchor",  name: "News Anchor",  description: "Crisp, even, professional cadence.",        icon: Newspaper, rate: 1.0,  pitch: 0.95, pause: 100 },
+  { id: "horror",       name: "Horror",       description: "Whisper-slow, deep, eerie pauses.",         icon: Ghost,     rate: 0.6,  pitch: 0.65, pause: 900 },
 ];
-
-const pauseToken: Record<Vibe["pause"], string> = {
-  none: " ",
-  short: " , ",
-  medium: " … ",
-  long: " … … ",
-  suspense: " … … … ",
-};
-
-/** Insert pauses between sentences according to the vibe. */
-export function applyVibeToText(text: string, vibe: Vibe | null): string {
-  if (!vibe || vibe.pause === "none") return text;
-  const token = pauseToken[vibe.pause];
-  // Split on sentence terminators while keeping them
-  return text.replace(/([.!?])\s+/g, `$1${token}`);
-}
 
 interface Props {
   activeId: string | null;
