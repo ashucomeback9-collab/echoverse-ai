@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSpeech } from "@/hooks/use-speech";
 import { Waveform } from "@/components/Waveform";
+import { VoiceLibrary, VOICE_PRESETS, pickVoiceForPreset } from "@/components/VoiceLibrary";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -16,6 +17,7 @@ function Index() {
   const { voices, status, speak, pause, resume, stop } = useSpeech();
   const [text, setText] = useState("Welcome to VoxWave. Type anything and hear it spoken in seconds.");
   const [voiceURI, setVoiceURI] = useState<string>("");
+  const [presetId, setPresetId] = useState<string | null>(null);
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [volume, setVolume] = useState(1);
@@ -25,6 +27,18 @@ function Index() {
     () => voices.find((v) => v.voiceURI === voiceURI) ?? voices[0] ?? null,
     [voices, voiceURI]
   );
+
+  // Auto-select Ash preset once voices load
+  useEffect(() => {
+    if (!presetId && voices.length) {
+      const ash = VOICE_PRESETS[0];
+      const v = pickVoiceForPreset(ash, voices);
+      if (v) {
+        setPresetId(ash.id);
+        setVoiceURI(v.voiceURI);
+      }
+    }
+  }, [voices, presetId]);
 
   const handleSpeak = () => {
     if (!text.trim()) return;
@@ -76,6 +90,15 @@ function Index() {
           </p>
         </header>
 
+        <VoiceLibrary
+          voices={voices}
+          activeId={presetId}
+          onSelect={(p, v) => {
+            setPresetId(p.id);
+            if (v) setVoiceURI(v.voiceURI);
+          }}
+        />
+
         <section className="glass rounded-3xl p-6 md:p-8 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -116,7 +139,10 @@ function Index() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-wider text-muted-foreground">Voice</label>
-              <Select value={selectedVoice?.voiceURI ?? ""} onValueChange={setVoiceURI}>
+              <Select
+                value={selectedVoice?.voiceURI ?? ""}
+                onValueChange={(v) => { setVoiceURI(v); setPresetId(null); }}
+              >
                 <SelectTrigger className="bg-background/40">
                   <SelectValue placeholder="Select a voice" />
                 </SelectTrigger>
