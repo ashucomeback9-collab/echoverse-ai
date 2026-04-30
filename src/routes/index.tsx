@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSpeech } from "@/hooks/use-speech";
 import { Waveform } from "@/components/Waveform";
 import { VoiceLibrary, VOICE_PRESETS, pickVoiceForPreset } from "@/components/VoiceLibrary";
-import { VoiceVibes, VIBES, applyVibeToText, type Vibe } from "@/components/VoiceVibes";
+import { VoiceVibes, applyVibeToText, type Vibe } from "@/components/VoiceVibes";
 
 export const Route = createFileRoute("/")({
   component: Index,
