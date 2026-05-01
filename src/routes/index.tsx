@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSpeech } from "@/hooks/use-speech";
 import { Waveform } from "@/components/Waveform";
-import { VoiceLibrary, VOICE_PRESETS, pickVoiceForPreset } from "@/components/VoiceLibrary";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
+import { detectLanguage, pickVoiceForLang } from "@/lib/detect-language";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -17,30 +16,21 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { voices, status, speak, pause, resume, stop } = useSpeech();
   const [text, setText] = useState("Welcome to VoxWave. Type anything and hear it spoken in seconds.");
-  const [voiceURI, setVoiceURI] = useState<string>("");
-  const [presetId, setPresetId] = useState<string | null>(null);
   const [vibe, setVibe] = useState<Vibe | null>(null);
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [volume, setVolume] = useState(1);
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
 
+  const detection = useMemo(() => detectLanguage(text), [text]);
   const selectedVoice = useMemo(
-    () => voices.find((v) => v.voiceURI === voiceURI) ?? voices[0] ?? null,
-    [voices, voiceURI]
+    () => pickVoiceForLang(voices, detection),
+    [voices, detection],
   );
-
-  // Auto-select Ash preset once voices load
-  useEffect(() => {
-    if (!presetId && voices.length) {
-      const ash = VOICE_PRESETS[0];
-      const v = pickVoiceForPreset(ash, voices);
-      if (v) {
-        setPresetId(ash.id);
-        setVoiceURI(v.voiceURI);
-      }
-    }
-  }, [voices, presetId]);
+  const fallbackUsed =
+    detection.lang !== "en" &&
+    selectedVoice != null &&
+    !selectedVoice.lang.toLowerCase().startsWith(detection.bcp47.split("-")[0]);
 
   const handleSpeak = () => {
     if (!text.trim()) return;
@@ -93,15 +83,6 @@ function Index() {
           </p>
         </header>
 
-        <VoiceLibrary
-          voices={voices}
-          activeId={presetId}
-          onSelect={(p, v) => {
-            setPresetId(p.id);
-            if (v) setVoiceURI(v.voiceURI);
-          }}
-        />
-
         <VoiceVibes activeId={vibe?.id ?? null} onSelect={setVibe} />
 
         <section className="glass rounded-3xl p-6 md:p-8 space-y-6">
@@ -141,27 +122,29 @@ function Index() {
 
           <Waveform active={status === "speaking"} />
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-wider text-muted-foreground">Voice</label>
-              <Select
-                value={selectedVoice?.voiceURI ?? ""}
-                onValueChange={(v) => { setVoiceURI(v); setPresetId(null); }}
-              >
-                <SelectTrigger className="bg-background/40">
-                  <SelectValue placeholder="Select a voice" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {voices.length === 0 && <SelectItem value="none" disabled>Loading voices…</SelectItem>}
-                  {voices.map((v) => (
-                    <SelectItem key={v.voiceURI} value={v.voiceURI}>
-                      {v.name} — {v.lang}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2 text-xs">
+              <Languages className="h-3.5 w-3.5 text-[color:var(--neon-blue)]" />
+              <span className="text-muted-foreground">Detected:</span>
+              <span className="font-semibold">{detection.label}</span>
             </div>
+            <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Voice:</span>
+              <span className="font-semibold truncate max-w-[200px]">
+                {selectedVoice ? `${selectedVoice.name} · ${selectedVoice.lang}` : "Loading…"}
+              </span>
+              {fallbackUsed && (
+                <span className="text-[10px] uppercase tracking-wider text-[color:var(--neon-purple)]">fallback</span>
+              )}
+            </div>
+            <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2 text-xs">
+              <Sparkles className="h-3.5 w-3.5 text-[color:var(--neon-purple)]" />
+              <span className="text-muted-foreground">Vibe:</span>
+              <span className="font-semibold">{vibe?.name ?? "None"}</span>
+            </div>
+          </div>
 
+          <div className="grid md:grid-cols-3 gap-6">
             <SliderRow label="Speed" value={rate} min={0.5} max={2} step={0.1} onChange={setRate} suffix="x" />
             <SliderRow label="Pitch" value={pitch} min={0} max={2} step={0.1} onChange={setPitch} />
             <SliderRow label="Volume" value={volume} min={0} max={1} step={0.05} onChange={setVolume} icon={<Volume2 className="h-3.5 w-3.5" />} />
