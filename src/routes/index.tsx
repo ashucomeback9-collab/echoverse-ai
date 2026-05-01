@@ -8,6 +8,7 @@ import { useSpeech } from "@/hooks/use-speech";
 import { Waveform } from "@/components/Waveform";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
 import { detectLanguage, pickVoiceForLang } from "@/lib/detect-language";
+import { CharacterVoices, pickVoiceForCharacter, type Character } from "@/components/CharacterVoices";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -17,6 +18,7 @@ function Index() {
   const { voices, status, speak, pause, resume, stop } = useSpeech();
   const [text, setText] = useState("Welcome to VoxWave. Type anything and hear it spoken in seconds.");
   const [vibe, setVibe] = useState<Vibe | null>(null);
+  const [character, setCharacter] = useState<Character | null>(null);
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [volume, setVolume] = useState(1);
@@ -24,8 +26,11 @@ function Index() {
 
   const detection = useMemo(() => detectLanguage(text), [text]);
   const selectedVoice = useMemo(
-    () => pickVoiceForLang(voices, detection),
-    [voices, detection],
+    () =>
+      character
+        ? pickVoiceForCharacter(voices, character, detection)
+        : pickVoiceForLang(voices, detection),
+    [voices, detection, character],
   );
   const fallbackUsed =
     !!selectedVoice &&
@@ -36,11 +41,15 @@ function Index() {
     if (!text || !text.trim()) return;
     setHighlight(null);
     try {
+      const baseRate = vibe?.rate ?? rate ?? 1;
+      const basePitch = vibe?.pitch ?? pitch ?? 1;
+      const finalRate = baseRate * (character?.rateMul ?? 1);
+      const finalPitch = basePitch * (character?.pitchMul ?? 1);
       speak({
         text,
         voice: selectedVoice ?? null,
-        rate: vibe?.rate ?? rate ?? 1,
-        pitch: vibe?.pitch ?? pitch ?? 1,
+        rate: finalRate,
+        pitch: finalPitch,
         volume: volume ?? 1,
         sentencePause: vibe?.pause ?? 0,
         onBoundary: (start, len) => setHighlight({ start, len }),
@@ -90,6 +99,13 @@ function Index() {
         </header>
 
         <VoiceVibes activeId={vibe?.id ?? null} onSelect={setVibe} />
+
+        <CharacterVoices
+          voices={voices}
+          detection={detection}
+          activeId={character?.id ?? null}
+          onSelect={setCharacter}
+        />
 
         <section className="glass rounded-3xl p-6 md:p-8 space-y-6">
           <div className="flex items-center justify-between">
@@ -151,6 +167,10 @@ function Index() {
               <Sparkles className="h-3.5 w-3.5 text-[color:var(--neon-purple)]" />
               <span className="text-muted-foreground">Vibe:</span>
               <span className="font-semibold">{vibe?.name ?? "None"}</span>
+            </div>
+            <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Character:</span>
+              <span className="font-semibold">{character?.name ?? "Auto"}</span>
             </div>
           </div>
 
