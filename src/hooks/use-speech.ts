@@ -37,6 +37,8 @@ export function useSpeech() {
 
   const speak = useCallback((opts: SpeakOptions) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const safeText = (opts?.text ?? "").toString();
+    if (!safeText.trim()) return;
     window.speechSynthesis.cancel();
     if (timerRef.current) clearTimeout(timerRef.current);
     cancelledRef.current = false;
@@ -66,13 +68,17 @@ export function useSpeech() {
       }
       const { text, offset } = chunks[i];
       const u = new SpeechSynthesisUtterance(text);
-      if (opts.voice) {
-        u.voice = opts.voice;
-        u.lang = opts.voice.lang;
+      if (opts.voice && typeof opts.voice === "object") {
+        try {
+          u.voice = opts.voice;
+          if (opts.voice.lang) u.lang = opts.voice.lang;
+        } catch {
+          /* ignore voice assignment failures */
+        }
       }
-      u.rate = opts.rate;
-      u.pitch = opts.pitch;
-      u.volume = opts.volume;
+      u.rate = Math.max(0.1, Math.min(10, Number(opts.rate) || 1));
+      u.pitch = Math.max(0, Math.min(2, Number(opts.pitch) || 1));
+      u.volume = Math.max(0, Math.min(1, Number(opts.volume) ?? 1));
       u.onstart = () => {
         if (!started) {
           started = true;

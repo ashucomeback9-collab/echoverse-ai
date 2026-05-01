@@ -28,23 +28,28 @@ function Index() {
     [voices, detection],
   );
   const fallbackUsed =
-    detection.lang !== "en" &&
-    selectedVoice != null &&
-    !selectedVoice.lang.toLowerCase().startsWith(detection.bcp47.split("-")[0]);
+    !!selectedVoice &&
+    detection?.lang !== "en" &&
+    !selectedVoice.lang?.toLowerCase().startsWith(detection?.bcp47?.split("-")[0] ?? "");
 
   const handleSpeak = () => {
-    if (!text.trim()) return;
+    if (!text || !text.trim()) return;
     setHighlight(null);
-    speak({
-      text,
-      voice: selectedVoice,
-      rate: vibe ? vibe.rate : rate,
-      pitch: vibe ? vibe.pitch : pitch,
-      volume,
-      sentencePause: vibe?.pause ?? 0,
-      onBoundary: (start, len) => setHighlight({ start, len }),
-      onEnd: () => setHighlight(null),
-    });
+    try {
+      speak({
+        text,
+        voice: selectedVoice ?? null,
+        rate: vibe?.rate ?? rate ?? 1,
+        pitch: vibe?.pitch ?? pitch ?? 1,
+        volume: volume ?? 1,
+        sentencePause: vibe?.pause ?? 0,
+        onBoundary: (start, len) => setHighlight({ start, len }),
+        onEnd: () => setHighlight(null),
+      });
+    } catch (err) {
+      console.error("Speech failed:", err);
+      setHighlight(null);
+    }
   };
 
   const handleStop = () => {
@@ -55,11 +60,12 @@ function Index() {
   const renderHighlighted = () => {
     if (!highlight || status !== "speaking") return text;
     const { start, len } = highlight;
-    const end = start + (len || text.slice(start).split(/\s/)[0]?.length || 0);
+    const safeStart = Math.max(0, Math.min(start, text.length));
+    const end = safeStart + (len || text.slice(safeStart).split(/\s/)[0]?.length || 0);
     return (
       <>
-        {text.slice(0, start)}
-        <span className="highlight-word">{text.slice(start, end)}</span>
+        {text.slice(0, safeStart)}
+        <span className="highlight-word">{text.slice(safeStart, end)}</span>
         {text.slice(end)}
       </>
     );
@@ -126,12 +132,16 @@ function Index() {
             <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2 text-xs">
               <Languages className="h-3.5 w-3.5 text-[color:var(--neon-blue)]" />
               <span className="text-muted-foreground">Detected:</span>
-              <span className="font-semibold">{detection.label}</span>
+              <span className="font-semibold">{detection?.label ?? "—"}</span>
             </div>
             <div className="glass rounded-full px-3 py-1.5 flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Voice:</span>
               <span className="font-semibold truncate max-w-[200px]">
-                {selectedVoice ? `${selectedVoice.name} · ${selectedVoice.lang}` : "Loading…"}
+                {selectedVoice?.name
+                  ? `${selectedVoice.name}${selectedVoice.lang ? ` · ${selectedVoice.lang}` : ""}`
+                  : voices.length === 0
+                    ? "Loading…"
+                    : "No voice available"}
               </span>
               {fallbackUsed && (
                 <span className="text-[10px] uppercase tracking-wider text-[color:var(--neon-purple)]">fallback</span>
