@@ -37,6 +37,8 @@ export function useSpeech() {
 
   const speak = useCallback((opts: SpeakOptions) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const safeText = (opts?.text ?? "").toString();
+    if (!safeText.trim()) return;
     window.speechSynthesis.cancel();
     if (timerRef.current) clearTimeout(timerRef.current);
     cancelledRef.current = false;
