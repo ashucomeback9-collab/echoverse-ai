@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { User, UserRound, Zap, Baby, Check } from "lucide-react";
+import { User, UserRound, Zap, Baby, Check, Mic } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LangDetection } from "@/lib/detect-language";
 
@@ -15,9 +15,29 @@ export interface Character {
   keywords: string[];
   /** Prefer voices whose name suggests this gender */
   prefer: "male" | "female" | "any";
+  /** Optional absolute overrides (cinematic presets like Ash) */
+  rateOverride?: number;
+  pitchOverride?: number;
+  pauseOverride?: number;
 }
 
 export const CHARACTERS: Character[] = [
+  {
+    id: "ash",
+    name: "Ash · True Crime",
+    description: "Deep, slow, cinematic narrator.",
+    icon: Mic,
+    rateMul: 1,
+    pitchMul: 1,
+    keywords: [
+      "male", "man", "daniel", "alex", "fred", "david", "george",
+      "ravi", "hemant", "guy", "mark", "james", "thomas", "brian",
+    ],
+    prefer: "male",
+    rateOverride: 0.78,
+    pitchOverride: 0.82,
+    pauseOverride: 700,
+  },
   {
     id: "man",
     name: "Man",
