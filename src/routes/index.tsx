@@ -41,8 +41,12 @@ function Index() {
     if (!text || !text.trim()) return;
     setHighlight(null);
     try {
-      const baseRate = vibe?.rate ?? rate ?? 1;
-      const basePitch = vibe?.pitch ?? pitch ?? 1;
+      // Natural "Sincere" baseline keeps every character sounding human
+      // when no vibe is explicitly selected.
+      const SINCERE_BASE = { rate: 0.9, pitch: 1.0, pause: 300 };
+      const baseRate = vibe?.rate ?? SINCERE_BASE.rate;
+      const basePitch = vibe?.pitch ?? SINCERE_BASE.pitch;
+      const basePause = vibe?.pause ?? SINCERE_BASE.pause;
       const finalRate = baseRate * (character?.rateMul ?? 1);
       const finalPitch = basePitch * (character?.pitchMul ?? 1);
       speak({
@@ -51,7 +55,7 @@ function Index() {
         rate: finalRate,
         pitch: finalPitch,
         volume: volume ?? 1,
-        sentencePause: vibe?.pause ?? 0,
+        sentencePause: basePause,
         onBoundary: (start, len) => setHighlight({ start, len }),
         onEnd: () => setHighlight(null),
       });
