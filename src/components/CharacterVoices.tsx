@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { User, UserRound, Zap, Baby, Check, Mic } from "lucide-react";
+import { User, UserRound, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LangDetection } from "@/lib/detect-language";
 
@@ -23,60 +23,24 @@ export interface Character {
 
 export const CHARACTERS: Character[] = [
   {
-    id: "ash",
-    name: "Ash · True Crime",
-    description: "Deep, slow, cinematic narrator.",
-    icon: Mic,
-    rateMul: 1,
-    pitchMul: 1,
-    keywords: [
-      "male", "man", "daniel", "alex", "fred", "david", "george",
-      "ravi", "hemant", "guy", "mark", "james", "thomas", "brian",
-    ],
-    prefer: "male",
-    rateOverride: 0.78,
-    pitchOverride: 0.82,
-    pauseOverride: 700,
-  },
-  {
     id: "man",
     name: "Man",
-    description: "Deep, grounded male voice.",
+    description: "Deep, calm, natural male voice.",
     icon: User,
-    rateMul: 0.97,
-    pitchMul: 0.92,
-    keywords: ["male", "man", "daniel", "alex", "fred", "david", "george", "ravi", "hemant"],
+    rateMul: 0.95,
+    pitchMul: 0.9,
+    keywords: ["male", "man", "daniel", "alex", "fred", "david", "george", "ravi", "hemant", "mark", "james", "guy"],
     prefer: "male",
   },
   {
     id: "woman",
     name: "Woman",
-    description: "Soft, warm female voice.",
+    description: "Soft, warm, natural female voice.",
     icon: UserRound,
-    rateMul: 1.0,
-    pitchMul: 1.06,
-    keywords: ["female", "woman", "samantha", "victoria", "zira", "serena", "karen", "lekha", "swara", "heera"],
+    rateMul: 0.95,
+    pitchMul: 1.05,
+    keywords: ["female", "woman", "samantha", "victoria", "zira", "serena", "karen", "lekha", "swara", "heera", "ava", "jenny"],
     prefer: "female",
-  },
-  {
-    id: "young",
-    name: "Young",
-    description: "Teen, energetic, upbeat.",
-    icon: Zap,
-    rateMul: 1.05,
-    pitchMul: 1.08,
-    keywords: ["junior", "young", "teen", "aaron", "alex"],
-    prefer: "any",
-  },
-  {
-    id: "child",
-    name: "Child",
-    description: "High pitch, fast, playful.",
-    icon: Baby,
-    rateMul: 1.03,
-    pitchMul: 1.12,
-    keywords: ["kid", "child", "junior"],
-    prefer: "any",
   },
 ];
 
@@ -86,6 +50,10 @@ function scoreVoice(v: SpeechSynthesisVoice, c: Character, langPrefix: string) {
   let s = 0;
   if (lang.startsWith(langPrefix)) s += 5;
   else if (lang.startsWith("en")) s += 1;
+  // Prefer high-quality engines.
+  if (/google/.test(name)) s += 4;
+  if (/natural|neural|wavenet|premium|enhanced|online/.test(name)) s += 3;
+  if (/novelty|whisper|bells|cellos|organ|trinoids|zarvox/.test(name)) s -= 10;
   for (const k of c.keywords) if (name.includes(k)) s += 2;
   if (c.prefer === "female" && /female|woman/.test(name)) s += 3;
   if (c.prefer === "male" && /male|man/.test(name) && !/female/.test(name)) s += 3;
@@ -128,7 +96,7 @@ export function CharacterVoices({ voices, detection, activeId, onSelect }: Props
         </h2>
         <span className="text-xs text-muted-foreground">Auto-mapped to your browser voices</span>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 max-w-2xl">
         {CHARACTERS.map((c) => {
           const Icon = c.icon;
           const active = activeId === c.id;
