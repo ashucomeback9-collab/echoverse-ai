@@ -47,15 +47,17 @@ function Index() {
       const baseRate = vibe?.rate ?? SINCERE_BASE.rate;
       const basePitch = vibe?.pitch ?? SINCERE_BASE.pitch;
       const basePause = vibe?.pause ?? SINCERE_BASE.pause;
-      const finalRate = baseRate * (character?.rateMul ?? 1);
-      const finalPitch = basePitch * (character?.pitchMul ?? 1);
+      // Character overrides (e.g. Ash · True Crime) take precedence over vibe.
+      const finalRate = character?.rateOverride ?? baseRate * (character?.rateMul ?? 1);
+      const finalPitch = character?.pitchOverride ?? basePitch * (character?.pitchMul ?? 1);
+      const finalPause = character?.pauseOverride ?? basePause;
       speak({
         text,
         voice: selectedVoice ?? null,
         rate: finalRate,
         pitch: finalPitch,
         volume: volume ?? 1,
-        sentencePause: basePause,
+        sentencePause: finalPause,
         onBoundary: (start, len) => setHighlight({ start, len }),
         onEnd: () => setHighlight(null),
       });
