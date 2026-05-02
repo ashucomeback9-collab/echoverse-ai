@@ -1,13 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { useSpeech } from "@/hooks/use-speech";
+import { useAmbientMusic } from "@/hooks/use-ambient-music";
 import { Waveform } from "@/components/Waveform";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
-import { detectLanguage, pickVoiceForLang } from "@/lib/detect-language";
+import { detectLanguage, pickVoiceForLang, cleanTextForSpeech } from "@/lib/detect-language";
 import { CharacterVoices, pickVoiceForCharacter, type Character } from "@/components/CharacterVoices";
 
 export const Route = createFileRoute("/")({
@@ -16,15 +18,19 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { voices, status, speak, pause, resume, stop } = useSpeech();
+  const ambient = useAmbientMusic();
   const [text, setText] = useState("Welcome to VoxWave. Type anything and hear it spoken in seconds.");
   const [vibe, setVibe] = useState<Vibe | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
-  const [rate, setRate] = useState(1);
-  const [pitch, setPitch] = useState(1);
+  const [rate, setRate] = useState(0.85);
+  const [pitch, setPitch] = useState(0.95);
   const [volume, setVolume] = useState(1);
+  const [musicOn, setMusicOn] = useState(true);
+  const [musicVolume, setMusicVolume] = useState(0.06);
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
 
-  const detection = useMemo(() => detectLanguage(text), [text]);
+  const cleanedText = useMemo(() => cleanTextForSpeech(text), [text]);
+  const detection = useMemo(() => detectLanguage(cleanedText || text), [cleanedText, text]);
   const selectedVoice = useMemo(
     () =>
       character
@@ -38,50 +44,66 @@ function Index() {
     !selectedVoice.lang?.toLowerCase().startsWith(detection?.bcp47?.split("-")[0] ?? "");
 
   const handleSpeak = () => {
-    if (!text || !text.trim()) return;
+    const sayable = (cleanedText || "").trim();
+    if (!sayable) return;
     setHighlight(null);
     try {
-      // Natural "Sincere" baseline keeps every character sounding human
-      // when no vibe is explicitly selected.
-      const SINCERE_BASE = { rate: 0.9, pitch: 1.0, pause: 300 };
-      const baseRate = vibe?.rate ?? SINCERE_BASE.rate;
-      const basePitch = vibe?.pitch ?? SINCERE_BASE.pitch;
-      const basePause = vibe?.pause ?? SINCERE_BASE.pause;
-      // Character overrides (e.g. Ash · True Crime) take precedence over vibe.
+      // Natural human-like baseline: slightly slower, slightly lower pitch,
+      // sentence pauses for cinematic pacing.
+      const NATURAL_BASE = { rate: 0.85, pitch: 0.95, pause: 350 };
+      const baseRate = vibe?.rate ?? NATURAL_BASE.rate;
+      const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
+      const basePause = vibe?.pause ?? NATURAL_BASE.pause;
       const finalRate = character?.rateOverride ?? baseRate * (character?.rateMul ?? 1);
       const finalPitch = character?.pitchOverride ?? basePitch * (character?.pitchMul ?? 1);
       const finalPause = character?.pauseOverride ?? basePause;
+
+      if (musicOn) ambient.start(musicVolume);
       speak({
-        text,
+        text: sayable,
         voice: selectedVoice ?? null,
         rate: finalRate,
         pitch: finalPitch,
         volume: volume ?? 1,
         sentencePause: finalPause,
         onBoundary: (start, len) => setHighlight({ start, len }),
-        onEnd: () => setHighlight(null),
+        onEnd: () => {
+          setHighlight(null);
+          ambient.stop();
+        },
       });
     } catch (err) {
       console.error("Speech failed:", err);
       setHighlight(null);
+      ambient.stop();
     }
   };
 
   const handleStop = () => {
     stop();
     setHighlight(null);
+    ambient.stop();
   };
+
+  useEffect(() => {
+    if (status === "speaking" && musicOn) ambient.setVolume(musicVolume);
+  }, [musicVolume, musicOn, status, ambient]);
+
+  useEffect(() => {
+    if (!musicOn) ambient.stop();
+  }, [musicOn, ambient]);
 
   const renderHighlighted = () => {
     if (!highlight || status !== "speaking") return text;
     const { start, len } = highlight;
-    const safeStart = Math.max(0, Math.min(start, text.length));
-    const end = safeStart + (len || text.slice(safeStart).split(/\s/)[0]?.length || 0);
+    const src = cleanedText || text;
+    const safeStart = Math.max(0, Math.min(start, src.length));
+    const end = safeStart + (len || src.slice(safeStart).split(/\s/)[0]?.length || 0);
     return (
       <>
-        {text.slice(0, safeStart)}
-        <span className="highlight-word">{text.slice(safeStart, end)}</span>
-        {text.slice(end)}
+        {src.slice(0, safeStart)}
+        <span className="highlight-word">{src.slice(safeStart, end)}</span>
+        {src.slice(end)}
       </>
     );
   };
@@ -184,6 +206,24 @@ function Index() {
             <SliderRow label="Speed" value={rate} min={0.5} max={2} step={0.1} onChange={setRate} suffix="x" />
             <SliderRow label="Pitch" value={pitch} min={0} max={2} step={0.1} onChange={setPitch} />
             <SliderRow label="Volume" value={volume} min={0} max={1} step={0.05} onChange={setVolume} icon={<Volume2 className="h-3.5 w-3.5" />} />
+          </div>
+
+          <div className="glass rounded-2xl p-4 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Music2 className="h-4 w-4 text-[color:var(--neon-purple)]" />
+              <span className="text-sm font-semibold">Cinematic music</span>
+            </div>
+            <Switch checked={musicOn} onCheckedChange={setMusicOn} />
+            <div className="flex-1 min-w-[180px]">
+              <SliderRow
+                label="Music volume"
+                value={musicVolume}
+                min={0}
+                max={0.2}
+                step={0.005}
+                onChange={setMusicVolume}
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
