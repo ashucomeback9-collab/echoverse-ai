@@ -50,12 +50,22 @@ function Index() {
     try {
       // Natural human-like baseline: slightly slower, slightly lower pitch,
       // sentence pauses for cinematic pacing.
-      const NATURAL_BASE = { rate: 0.85, pitch: 0.95, pause: 350 };
+      const NATURAL_BASE = { rate: 0.9, pitch: 1.0, pause: 320 };
       const baseRate = vibe?.rate ?? NATURAL_BASE.rate;
       const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
       const basePause = vibe?.pause ?? NATURAL_BASE.pause;
-      const finalRate = character?.rateOverride ?? baseRate * (character?.rateMul ?? 1);
-      const finalPitch = character?.pitchOverride ?? basePitch * (character?.pitchMul ?? 1);
+      // Clamp to natural human-narrator range to avoid robotic extremes.
+      const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+      const finalRate = clamp(
+        character?.rateOverride ?? baseRate * (character?.rateMul ?? 1),
+        0.85,
+        0.95,
+      );
+      const finalPitch = clamp(
+        character?.pitchOverride ?? basePitch * (character?.pitchMul ?? 1),
+        0.9,
+        1.05,
+      );
       const finalPause = character?.pauseOverride ?? basePause;
 
       if (musicOn) ambient.start(musicVolume);
@@ -66,6 +76,10 @@ function Index() {
         pitch: finalPitch,
         volume: volume ?? 1,
         sentencePause: finalPause,
+        commaPause: 100,
+        leadInDelay: 350,
+        tailDelay: 400,
+        breathBeforeLong: 220,
         onBoundary: (start, len) => setHighlight({ start, len }),
         onEnd: () => {
           setHighlight(null);
