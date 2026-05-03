@@ -10,6 +10,14 @@ export interface SpeakOptions {
   volume: number;
   /** Pause in ms between sentences. 0 = no chunking. */
   sentencePause?: number;
+  /** Pause in ms after commas / soft punctuation. */
+  commaPause?: number;
+  /** Silent delay before first sentence (breathing in). */
+  leadInDelay?: number;
+  /** Silent delay after last sentence. */
+  tailDelay?: number;
+  /** Extra pause before long sentences (>120 chars) to mimic breath. */
+  breathBeforeLong?: number;
   onBoundary?: (charIndex: number, charLength: number) => void;
   onEnd?: () => void;
 }
@@ -44,6 +52,10 @@ export function useSpeech() {
     cancelledRef.current = false;
 
     const pause = Math.max(0, opts.sentencePause ?? 0);
+    const commaPause = Math.max(0, opts.commaPause ?? 0);
+    const leadIn = Math.max(0, opts.leadInDelay ?? 0);
+    const tail = Math.max(0, opts.tailDelay ?? 0);
+    const breathLong = Math.max(0, opts.breathBeforeLong ?? 0);
     // Split into sentences while preserving terminators; track offsets for highlighting.
     const chunks: { text: string; offset: number }[] = [];
     if (pause > 0) {
@@ -56,18 +68,27 @@ export function useSpeech() {
     }
     if (chunks.length === 0) chunks.push({ text: opts.text, offset: 0 });
 
+    // Inject SSML-like comma pauses by padding commas with whitespace.
+    // Most browser TTS engines lengthen the pause when commas are followed
+    // by extra spaces, giving a softer, more human cadence.
+    const commaSpacer = commaPause > 0 ? "   " : "";
+    const withCommaPauses = (s: string) =>
+      commaSpacer ? s.replace(/,\s*/g, `,${commaSpacer}`) : s;
+
     let i = 0;
     let started = false;
 
     const speakNext = () => {
       if (cancelledRef.current) return;
       if (i >= chunks.length) {
-        setStatus("idle");
-        opts.onEnd?.();
+        timerRef.current = setTimeout(() => {
+          setStatus("idle");
+          opts.onEnd?.();
+        }, tail);
         return;
       }
       const { text, offset } = chunks[i];
-      const u = new SpeechSynthesisUtterance(text);
+      const u = new SpeechSynthesisUtterance(withCommaPauses(text));
       if (opts.voice && typeof opts.voice === "object") {
         try {
           u.voice = opts.voice;
@@ -102,17 +123,25 @@ export function useSpeech() {
         if (cancelledRef.current) return;
         i++;
         if (i >= chunks.length) {
-          setStatus("idle");
-          opts.onEnd?.();
+          timerRef.current = setTimeout(() => {
+            setStatus("idle");
+            opts.onEnd?.();
+          }, tail);
         } else {
-          timerRef.current = setTimeout(speakNext, pause);
+          const next = chunks[i];
+          const extra = next.text.length > 120 ? breathLong : 0;
+          timerRef.current = setTimeout(speakNext, pause + extra);
         }
       };
       window.speechSynthesis.speak(u);
     };
 
     setStatus("speaking");
-    speakNext();
+    if (leadIn > 0) {
+      timerRef.current = setTimeout(speakNext, leadIn);
+    } else {
+      speakNext();
+    }
   }, []);
 
   const pause = useCallback(() => {
