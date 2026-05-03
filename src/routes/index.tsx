@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -26,6 +26,8 @@ function Index() {
   const [musicOn, setMusicOn] = useState(true);
   const [musicVolume, setMusicVolume] = useState(0.06);
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
 
   const cleanedText = useMemo(() => cleanTextForSpeech(text), [text]);
   const detection = useMemo(() => detectLanguage(cleanedText || text), [cleanedText, text]);
@@ -84,6 +86,98 @@ function Index() {
     stop();
     setHighlight(null);
     ambient.stop();
+  };
+
+  const handleDownload = async () => {
+    const sayable = (cleanedText || "").trim();
+    if (!sayable || recording) return;
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
+      alert("Audio capture is not supported in this browser. Try Chrome on desktop.");
+      return;
+    }
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+    } catch {
+      return;
+    }
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      stream.getTracks().forEach((t) => t.stop());
+      alert('No audio captured. When the share dialog appears, pick "Chrome Tab" and enable "Share tab audio".');
+      return;
+    }
+    // Drop video tracks; we only need audio.
+    stream.getVideoTracks().forEach((t) => t.stop());
+    const audioStream = new MediaStream(audioTracks);
+    const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+    const recorder = new MediaRecorder(audioStream, { mimeType: mime });
+    recorderRef.current = recorder;
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+    recorder.onstop = () => {
+      audioStream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `voxwave-${Date.now()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setRecording(false);
+      recorderRef.current = null;
+    };
+    setRecording(true);
+    recorder.start();
+    // Begin speaking; stop the recorder when speech ends.
+    setHighlight(null);
+    const NATURAL_BASE = { rate: 0.9, pitch: 1.0, pause: 320 };
+    const baseRate = vibe?.rate ?? NATURAL_BASE.rate;
+    const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
+    const basePause = vibe?.pause ?? NATURAL_BASE.pause;
+    const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+    if (musicOn) ambient.start(musicVolume);
+    speak({
+      text: sayable,
+      voice: selectedVoice ?? null,
+      rate: clamp(baseRate, 0.85, 0.95),
+      pitch: clamp(basePitch, 0.9, 1.05),
+      volume: volume ?? 1,
+      sentencePause: basePause,
+      commaPause: 100,
+      leadInDelay: 350,
+      tailDelay: 600,
+      breathBeforeLong: 220,
+      onBoundary: (start, len) => setHighlight({ start, len }),
+      onEnd: () => {
+        setHighlight(null);
+        ambient.stop();
+        if (recorderRef.current && recorderRef.current.state !== "inactive") {
+          recorderRef.current.stop();
+        }
+      },
+    });
+  };
+
+  const handleDownloadText = () => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `voxwave-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   useEffect(() => {
@@ -238,7 +332,34 @@ function Index() {
             <Button size="lg" variant="ghost" className="rounded-full px-6" onClick={handleSpeak} disabled={!text.trim()}>
               <RotateCcw className="h-4 w-4 mr-2" /> Generate Again
             </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full px-6"
+              onClick={handleDownload}
+              disabled={!text.trim() || recording || status !== "idle"}
+            >
+              {recording ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {recording ? "Recording…" : "Download Audio"}
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              className="rounded-full px-6"
+              onClick={handleDownloadText}
+              disabled={!text.trim()}
+            >
+              <Download className="h-4 w-4 mr-2" /> Download Text
+            </Button>
           </div>
+          <p className="text-center text-[11px] text-muted-foreground -mt-2">
+            Tip: For audio download, choose <span className="font-semibold">"Chrome Tab"</span> and enable
+            <span className="font-semibold"> "Share tab audio"</span> when prompted.
+          </p>
         </section>
 
         <p className="text-center text-xs text-muted-foreground">
