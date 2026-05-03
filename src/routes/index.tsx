@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2 } from "lucide-react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2, Wand2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -10,6 +10,7 @@ import { useAmbientMusic } from "@/hooks/use-ambient-music";
 import { Waveform } from "@/components/Waveform";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
 import { detectLanguage, pickVoiceForLang, cleanTextForSpeech } from "@/lib/detect-language";
+import { generateOpenAIAudio } from "@/server/tts.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -28,6 +29,64 @@ function Index() {
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const [aiVoice, setAiVoice] = useState<string>("alloy");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAudioUrl, setAiAudioUrl] = useState<string | null>(null);
+  const aiAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const OPENAI_VOICES = [
+    { id: "alloy", label: "Alloy" },
+    { id: "echo", label: "Echo" },
+    { id: "fable", label: "Fable" },
+    { id: "onyx", label: "Onyx" },
+    { id: "nova", label: "Nova" },
+    { id: "shimmer", label: "Shimmer" },
+  ];
+
+  const handleAiSpeak = async () => {
+    const sayable = (cleanedText || "").trim();
+    if (!sayable || aiLoading) return;
+    setAiLoading(true);
+    try {
+      if (aiAudioRef.current) {
+        aiAudioRef.current.pause();
+        aiAudioRef.current = null;
+      }
+      if (aiAudioUrl) {
+        URL.revokeObjectURL(aiAudioUrl);
+        setAiAudioUrl(null);
+      }
+      const res = await generateOpenAIAudio({ data: { text: sayable, voice: aiVoice } });
+      const bin = atob(res.audioBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.mime });
+      const url = URL.createObjectURL(blob);
+      setAiAudioUrl(url);
+      const audio = new Audio(url);
+      aiAudioRef.current = audio;
+      audio.volume = volume ?? 1;
+      if (musicOn) ambient.start(musicVolume);
+      audio.onended = () => ambient.stop();
+      await audio.play();
+    } catch (err) {
+      console.error("AI voice failed:", err);
+      alert((err as Error)?.message ?? "AI voice generation failed");
+      ambient.stop();
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAiDownload = () => {
+    if (!aiAudioUrl) return;
+    const a = document.createElement("a");
+    a.href = aiAudioUrl;
+    a.download = `voxwave-ai-${Date.now()}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   const cleanedText = useMemo(() => cleanTextForSpeech(text), [text]);
   const detection = useMemo(() => detectLanguage(cleanedText || text), [cleanedText, text]);
@@ -360,6 +419,49 @@ function Index() {
             Tip: For audio download, choose <span className="font-semibold">"Chrome Tab"</span> and enable
             <span className="font-semibold"> "Share tab audio"</span> when prompted.
           </p>
+
+          <div className="glass rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-[color:var(--neon-purple)]" />
+              <span className="text-sm font-semibold">AI Voice (OpenAI gpt-audio)</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">natural · human-like</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {OPENAI_VOICES.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setAiVoice(v.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition ${
+                    aiVoice === v.id
+                      ? "bg-[color:var(--neon-purple)]/20 border-[color:var(--neon-purple)] text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="btn-neon rounded-full px-5"
+                onClick={handleAiSpeak}
+                disabled={!text.trim() || aiLoading}
+              >
+                {aiLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                {aiLoading ? "Generating…" : "Generate AI Voice"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full px-5"
+                onClick={handleAiDownload}
+                disabled={!aiAudioUrl}
+              >
+                <Download className="h-4 w-4 mr-2" /> Download AI Audio
+              </Button>
+            </div>
+          </div>
         </section>
 
         <p className="text-center text-xs text-muted-foreground">
