@@ -337,6 +337,12 @@ function Index() {
     if (!musicOn) ambient.stop();
   }, [musicOn, ambient]);
 
+  useEffect(() => {
+    const c = CHARACTERS.find((x) => x.id === character);
+    if (c) setAiVoice(c.voice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character]);
+
   const renderHighlighted = () => {
     if (!highlight || status !== "speaking") return text;
     const { start, len } = highlight;
@@ -516,6 +522,38 @@ function Index() {
               <span className="text-sm font-semibold">AI Voice (OpenAI gpt-audio)</span>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">natural · human-like</span>
             </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Character</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {CHARACTERS.map((c) => {
+                  const Icon = c.icon;
+                  const active = character === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCharacter(c.id)}
+                      className={`text-left rounded-xl p-3 border transition flex flex-col gap-1 ${
+                        active
+                          ? "border-[color:var(--neon-purple)] bg-[color:var(--neon-purple)]/15"
+                          : "border-border hover:border-[color:var(--neon-blue)]/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-[color:var(--neon-purple)]" />
+                        <span className="text-sm font-semibold">{c.name}</span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground leading-snug">
+                        {c.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Voice timbre</p>
             <div className="flex flex-wrap gap-2">
               {OPENAI_VOICES.map((v) => (
                 <button
