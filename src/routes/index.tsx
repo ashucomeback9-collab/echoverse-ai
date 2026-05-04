@@ -54,7 +54,10 @@ function Index() {
       // Clamp to natural human-narrator range to avoid robotic extremes.
       const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
       const finalRate = clamp(baseRate, 0.85, 0.95);
-      const finalPitch = clamp(basePitch, 0.9, 1.05);
+      // Male voices sound more natural and grounded with a slightly lower pitch.
+      // Female stays near baseline; auto leaves baseline untouched.
+      const pitchBias = gender === "male" ? 0.92 : gender === "female" ? 1.02 : 1;
+      const finalPitch = clamp(basePitch * pitchBias, 0.85, 1.05);
       const finalPause = basePause;
 
       if (musicOn) ambient.start(musicVolume);
@@ -145,12 +148,13 @@ function Index() {
     const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
     const basePause = vibe?.pause ?? NATURAL_BASE.pause;
     const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+    const pitchBias = gender === "male" ? 0.92 : gender === "female" ? 1.02 : 1;
     if (musicOn) ambient.start(musicVolume);
     speak({
       text: sayable,
       voice: selectedVoice ?? null,
       rate: clamp(baseRate, 0.85, 0.95),
-      pitch: clamp(basePitch, 0.9, 1.05),
+      pitch: clamp(basePitch * pitchBias, 0.85, 1.05),
       volume: volume ?? 1,
       sentencePause: basePause,
       commaPause: 100,
