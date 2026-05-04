@@ -9,7 +9,7 @@ import { useSpeech } from "@/hooks/use-speech";
 import { useAmbientMusic } from "@/hooks/use-ambient-music";
 import { Waveform } from "@/components/Waveform";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
-import { detectLanguage, pickVoiceForLang, cleanTextForSpeech } from "@/lib/detect-language";
+import { detectLanguage, pickVoiceForLang, cleanTextForSpeech, type VoiceGender } from "@/lib/detect-language";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -28,11 +28,12 @@ function Index() {
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const [gender, setGender] = useState<VoiceGender>("auto");
   const cleanedText = useMemo(() => cleanTextForSpeech(text), [text]);
   const detection = useMemo(() => detectLanguage(cleanedText || text), [cleanedText, text]);
   const selectedVoice = useMemo(
-    () => pickVoiceForLang(voices, detection),
-    [voices, detection],
+    () => pickVoiceForLang(voices, detection, gender),
+    [voices, detection, gender],
   );
   const fallbackUsed =
     !!selectedVoice &&
@@ -53,7 +54,10 @@ function Index() {
       // Clamp to natural human-narrator range to avoid robotic extremes.
       const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
       const finalRate = clamp(baseRate, 0.85, 0.95);
-      const finalPitch = clamp(basePitch, 0.9, 1.05);
+      // Male voices sound more natural and grounded with a slightly lower pitch.
+      // Female stays near baseline; auto leaves baseline untouched.
+      const pitchBias = gender === "male" ? 0.92 : gender === "female" ? 1.02 : 1;
+      const finalPitch = clamp(basePitch * pitchBias, 0.85, 1.05);
       const finalPause = basePause;
 
       if (musicOn) ambient.start(musicVolume);
@@ -144,12 +148,13 @@ function Index() {
     const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
     const basePause = vibe?.pause ?? NATURAL_BASE.pause;
     const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+    const pitchBias = gender === "male" ? 0.92 : gender === "female" ? 1.02 : 1;
     if (musicOn) ambient.start(musicVolume);
     speak({
       text: sayable,
       voice: selectedVoice ?? null,
       rate: clamp(baseRate, 0.85, 0.95),
-      pitch: clamp(basePitch, 0.9, 1.05),
+      pitch: clamp(basePitch * pitchBias, 0.85, 1.05),
       volume: volume ?? 1,
       sentencePause: basePause,
       commaPause: 100,
@@ -289,6 +294,31 @@ function Index() {
             <SliderRow label="Speed" value={rate} min={0.5} max={2} step={0.1} onChange={setRate} suffix="x" />
             <SliderRow label="Pitch" value={pitch} min={0} max={2} step={0.1} onChange={setPitch} />
             <SliderRow label="Volume" value={volume} min={0} max={1} step={0.05} onChange={setVolume} icon={<Volume2 className="h-3.5 w-3.5" />} />
+          </div>
+
+          <div className="glass rounded-2xl p-4 flex flex-wrap items-center gap-3">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">Voice gender</span>
+            <div className="flex gap-2">
+              {(["auto", "male", "female"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGender(g)}
+                  className={`px-4 py-1.5 rounded-full text-xs capitalize border transition ${
+                    gender === g
+                      ? "bg-[color:var(--neon-purple)]/20 border-[color:var(--neon-purple)] text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {g === "male" ? "Man" : g === "female" ? "Woman" : "Auto"}
+                </button>
+              ))}
+            </div>
+            {gender === "male" && (
+              <span className="text-[11px] text-muted-foreground">
+                Deep male narrator — slightly lower pitch, no female voices.
+              </span>
+            )}
           </div>
 
           <div className="glass rounded-2xl p-4 flex flex-wrap items-center gap-4">
