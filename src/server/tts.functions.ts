@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 
 export const generateOpenAIAudio = createServerFn({ method: "POST" })
-  .inputValidator((data: { text: string; voice?: string }) => ({
+  .inputValidator((data: { text: string; voice?: string; style?: string }) => ({
     text: String(data?.text ?? "").slice(0, 4000),
     voice: String(data?.voice ?? "alloy"),
+    style: String(data?.style ?? "").slice(0, 600),
   }))
   .handler(async ({ data }) => {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -27,7 +28,10 @@ export const generateOpenAIAudio = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You are a calm, natural-sounding human narrator. Read the user's text aloud exactly as written, in a smooth, warm, slightly slow, cinematic tone. Do not add commentary.",
+              (data.style && data.style.trim().length > 0
+                ? data.style
+                : "You are a calm, natural-sounding human narrator. Read the user's text aloud exactly as written, in a smooth, warm, slightly slow, cinematic tone.") +
+              " Read the user's text aloud exactly as written. Do not add any commentary, prefixes, or extra words.",
           },
           { role: "user", content: data.text },
         ],
