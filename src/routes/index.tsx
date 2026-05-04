@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download } from "lucide-react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
