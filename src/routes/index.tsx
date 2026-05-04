@@ -296,6 +296,31 @@ function Index() {
             <SliderRow label="Volume" value={volume} min={0} max={1} step={0.05} onChange={setVolume} icon={<Volume2 className="h-3.5 w-3.5" />} />
           </div>
 
+          <div className="glass rounded-2xl p-4 flex flex-wrap items-center gap-3">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">Voice gender</span>
+            <div className="flex gap-2">
+              {(["auto", "male", "female"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGender(g)}
+                  className={`px-4 py-1.5 rounded-full text-xs capitalize border transition ${
+                    gender === g
+                      ? "bg-[color:var(--neon-purple)]/20 border-[color:var(--neon-purple)] text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {g === "male" ? "Man" : g === "female" ? "Woman" : "Auto"}
+                </button>
+              ))}
+            </div>
+            {gender === "male" && (
+              <span className="text-[11px] text-muted-foreground">
+                Deep male narrator — slightly lower pitch, no female voices.
+              </span>
+            )}
+          </div>
+
           <div className="glass rounded-2xl p-4 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Music2 className="h-4 w-4 text-[color:var(--neon-purple)]" />
