@@ -9,7 +9,7 @@ import { useSpeech } from "@/hooks/use-speech";
 import { useAmbientMusic } from "@/hooks/use-ambient-music";
 import { Waveform } from "@/components/Waveform";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
-import { detectLanguage, pickVoiceForLang, cleanTextForSpeech } from "@/lib/detect-language";
+import { detectLanguage, pickVoiceForLang, cleanTextForSpeech, type VoiceGender } from "@/lib/detect-language";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -28,11 +28,12 @@ function Index() {
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const [gender, setGender] = useState<VoiceGender>("auto");
   const cleanedText = useMemo(() => cleanTextForSpeech(text), [text]);
   const detection = useMemo(() => detectLanguage(cleanedText || text), [cleanedText, text]);
   const selectedVoice = useMemo(
-    () => pickVoiceForLang(voices, detection),
-    [voices, detection],
+    () => pickVoiceForLang(voices, detection, gender),
+    [voices, detection, gender],
   );
   const fallbackUsed =
     !!selectedVoice &&
