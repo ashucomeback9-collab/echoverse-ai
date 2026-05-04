@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2, Wand2 } from "lucide-react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2, Wand2, User, UserRound, Baby, GraduationCap, Mic2, Drama, Newspaper, Sword } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -33,6 +33,7 @@ function Index() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAudioUrl, setAiAudioUrl] = useState<string | null>(null);
   const aiAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [character, setCharacter] = useState<string>("man");
 
   const OPENAI_VOICES = [
     { id: "alloy", label: "Alloy" },
@@ -41,6 +42,88 @@ function Index() {
     { id: "onyx", label: "Onyx" },
     { id: "nova", label: "Nova" },
     { id: "shimmer", label: "Shimmer" },
+  ];
+
+  const CHARACTERS: {
+    id: string;
+    name: string;
+    description: string;
+    icon: typeof User;
+    voice: string;
+    style: string;
+  }[] = [
+    {
+      id: "man",
+      name: "Man",
+      description: "Deep, calm, natural adult male.",
+      icon: User,
+      voice: "onyx",
+      style:
+        "You are an adult man with a warm, deep, natural voice. Speak in a calm, grounded, conversational tone — like a friendly narrator in his 30s.",
+    },
+    {
+      id: "woman",
+      name: "Woman",
+      description: "Warm, soft, natural adult female.",
+      icon: UserRound,
+      voice: "nova",
+      style:
+        "You are an adult woman with a warm, soft, natural voice. Speak in a friendly, gentle, conversational tone — clear and inviting.",
+    },
+    {
+      id: "child",
+      name: "Child",
+      description: "Bright, playful, youthful child voice.",
+      icon: Baby,
+      voice: "shimmer",
+      style:
+        "You are a cheerful child around 8 years old. Speak in a bright, playful, slightly higher-pitched voice with curious, excited energy. Keep it innocent and fun.",
+    },
+    {
+      id: "professor",
+      name: "Professor",
+      description: "Wise, articulate, lecturing professor.",
+      icon: GraduationCap,
+      voice: "ash",
+      style:
+        "You are a wise university professor in his 60s. Speak in a measured, articulate, slightly slow lecturing tone, with thoughtful pauses and clear emphasis on key ideas.",
+    },
+    {
+      id: "narrator",
+      name: "Narrator",
+      description: "Cinematic movie-trailer voice.",
+      icon: Mic2,
+      voice: "ash",
+      style:
+        "You are a cinematic movie-trailer narrator. Speak in a deep, dramatic, slow, epic voice with weighty pauses and powerful intensity.",
+    },
+    {
+      id: "villain",
+      name: "Villain",
+      description: "Dark, menacing, theatrical villain.",
+      icon: Drama,
+      voice: "onyx",
+      style:
+        "You are a theatrical villain. Speak in a dark, low, menacing, slightly drawn-out tone with cold confidence and a hint of cruel amusement.",
+    },
+    {
+      id: "news",
+      name: "News Anchor",
+      description: "Crisp, neutral, professional anchor.",
+      icon: Newspaper,
+      voice: "echo",
+      style:
+        "You are a professional television news anchor. Speak in a clear, crisp, neutral, well-paced broadcast tone with confident articulation.",
+    },
+    {
+      id: "hero",
+      name: "Hero",
+      description: "Bold, heroic, inspiring warrior.",
+      icon: Sword,
+      voice: "fable",
+      style:
+        "You are a bold heroic warrior. Speak in a strong, brave, inspiring tone — confident, noble, and full of conviction.",
+    },
   ];
 
   const handleAiSpeak = async () => {
@@ -56,7 +139,14 @@ function Index() {
         URL.revokeObjectURL(aiAudioUrl);
         setAiAudioUrl(null);
       }
-      const res = await generateOpenAIAudio({ data: { text: sayable, voice: aiVoice } });
+      const activeChar = CHARACTERS.find((c) => c.id === character) ?? null;
+      const res = await generateOpenAIAudio({
+        data: {
+          text: sayable,
+          voice: aiVoice,
+          style: activeChar?.style ?? "",
+        },
+      });
       const bin = atob(res.audioBase64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
