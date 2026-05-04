@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download, Loader2, Wand2, User, UserRound, Baby, GraduationCap, Mic2, Drama, Newspaper, Sword } from "lucide-react";
+import { Play, Pause, Square, RotateCcw, Trash2, Sparkles, Volume2, Languages, Music2, Download } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -10,7 +10,6 @@ import { useAmbientMusic } from "@/hooks/use-ambient-music";
 import { Waveform } from "@/components/Waveform";
 import { VoiceVibes, type Vibe } from "@/components/VoiceVibes";
 import { detectLanguage, pickVoiceForLang, cleanTextForSpeech } from "@/lib/detect-language";
-import { generateOpenAIAudio } from "@/server/tts.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -29,155 +28,6 @@ function Index() {
   const [highlight, setHighlight] = useState<{ start: number; len: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const [aiVoice, setAiVoice] = useState<string>("alloy");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiAudioUrl, setAiAudioUrl] = useState<string | null>(null);
-  const aiAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [character, setCharacter] = useState<string>("man");
-
-  const OPENAI_VOICES = [
-    { id: "alloy", label: "Alloy" },
-    { id: "echo", label: "Echo" },
-    { id: "fable", label: "Fable" },
-    { id: "onyx", label: "Onyx" },
-    { id: "nova", label: "Nova" },
-    { id: "shimmer", label: "Shimmer" },
-  ];
-
-  const CHARACTERS: {
-    id: string;
-    name: string;
-    description: string;
-    icon: typeof User;
-    voice: string;
-    style: string;
-  }[] = [
-    {
-      id: "man",
-      name: "Man",
-      description: "Deep, calm, natural adult male.",
-      icon: User,
-      voice: "onyx",
-      style:
-        "You are an adult man with a warm, deep, natural voice. Speak in a calm, grounded, conversational tone — like a friendly narrator in his 30s.",
-    },
-    {
-      id: "woman",
-      name: "Woman",
-      description: "Warm, soft, natural adult female.",
-      icon: UserRound,
-      voice: "nova",
-      style:
-        "You are an adult woman with a warm, soft, natural voice. Speak in a friendly, gentle, conversational tone — clear and inviting.",
-    },
-    {
-      id: "child",
-      name: "Child",
-      description: "Bright, playful, youthful child voice.",
-      icon: Baby,
-      voice: "shimmer",
-      style:
-        "You are a cheerful child around 8 years old. Speak in a bright, playful, slightly higher-pitched voice with curious, excited energy. Keep it innocent and fun.",
-    },
-    {
-      id: "professor",
-      name: "Professor",
-      description: "Wise, articulate, lecturing professor.",
-      icon: GraduationCap,
-      voice: "ash",
-      style:
-        "You are a wise university professor in his 60s. Speak in a measured, articulate, slightly slow lecturing tone, with thoughtful pauses and clear emphasis on key ideas.",
-    },
-    {
-      id: "narrator",
-      name: "Narrator",
-      description: "Cinematic movie-trailer voice.",
-      icon: Mic2,
-      voice: "ash",
-      style:
-        "You are a cinematic movie-trailer narrator. Speak in a deep, dramatic, slow, epic voice with weighty pauses and powerful intensity.",
-    },
-    {
-      id: "villain",
-      name: "Villain",
-      description: "Dark, menacing, theatrical villain.",
-      icon: Drama,
-      voice: "onyx",
-      style:
-        "You are a theatrical villain. Speak in a dark, low, menacing, slightly drawn-out tone with cold confidence and a hint of cruel amusement.",
-    },
-    {
-      id: "news",
-      name: "News Anchor",
-      description: "Crisp, neutral, professional anchor.",
-      icon: Newspaper,
-      voice: "echo",
-      style:
-        "You are a professional television news anchor. Speak in a clear, crisp, neutral, well-paced broadcast tone with confident articulation.",
-    },
-    {
-      id: "hero",
-      name: "Hero",
-      description: "Bold, heroic, inspiring warrior.",
-      icon: Sword,
-      voice: "fable",
-      style:
-        "You are a bold heroic warrior. Speak in a strong, brave, inspiring tone — confident, noble, and full of conviction.",
-    },
-  ];
-
-  const handleAiSpeak = async () => {
-    const sayable = (cleanedText || "").trim();
-    if (!sayable || aiLoading) return;
-    setAiLoading(true);
-    try {
-      if (aiAudioRef.current) {
-        aiAudioRef.current.pause();
-        aiAudioRef.current = null;
-      }
-      if (aiAudioUrl) {
-        URL.revokeObjectURL(aiAudioUrl);
-        setAiAudioUrl(null);
-      }
-      const activeChar = CHARACTERS.find((c) => c.id === character) ?? null;
-      const res = await generateOpenAIAudio({
-        data: {
-          text: sayable,
-          voice: aiVoice,
-          style: activeChar?.style ?? "",
-        },
-      });
-      const bin = atob(res.audioBase64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], { type: res.mime });
-      const url = URL.createObjectURL(blob);
-      setAiAudioUrl(url);
-      const audio = new Audio(url);
-      aiAudioRef.current = audio;
-      audio.volume = volume ?? 1;
-      if (musicOn) ambient.start(musicVolume);
-      audio.onended = () => ambient.stop();
-      await audio.play();
-    } catch (err) {
-      console.error("AI voice failed:", err);
-      alert((err as Error)?.message ?? "AI voice generation failed");
-      ambient.stop();
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const handleAiDownload = () => {
-    if (!aiAudioUrl) return;
-    const a = document.createElement("a");
-    a.href = aiAudioUrl;
-    a.download = `voxwave-ai-${Date.now()}.wav`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
   const cleanedText = useMemo(() => cleanTextForSpeech(text), [text]);
   const detection = useMemo(() => detectLanguage(cleanedText || text), [cleanedText, text]);
   const selectedVoice = useMemo(
@@ -336,12 +186,6 @@ function Index() {
   useEffect(() => {
     if (!musicOn) ambient.stop();
   }, [musicOn, ambient]);
-
-  useEffect(() => {
-    const c = CHARACTERS.find((x) => x.id === character);
-    if (c) setAiVoice(c.voice);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [character]);
 
   const renderHighlighted = () => {
     if (!highlight || status !== "speaking") return text;
@@ -515,81 +359,6 @@ function Index() {
             Tip: For audio download, choose <span className="font-semibold">"Chrome Tab"</span> and enable
             <span className="font-semibold"> "Share tab audio"</span> when prompted.
           </p>
-
-          <div className="glass rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Wand2 className="h-4 w-4 text-[color:var(--neon-purple)]" />
-              <span className="text-sm font-semibold">AI Voice (OpenAI gpt-audio)</span>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">natural · human-like</span>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Character</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CHARACTERS.map((c) => {
-                  const Icon = c.icon;
-                  const active = character === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setCharacter(c.id)}
-                      className={`text-left rounded-xl p-3 border transition flex flex-col gap-1 ${
-                        active
-                          ? "border-[color:var(--neon-purple)] bg-[color:var(--neon-purple)]/15"
-                          : "border-border hover:border-[color:var(--neon-blue)]/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-[color:var(--neon-purple)]" />
-                        <span className="text-sm font-semibold">{c.name}</span>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground leading-snug">
-                        {c.description}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Voice timbre</p>
-            <div className="flex flex-wrap gap-2">
-              {OPENAI_VOICES.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => setAiVoice(v.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs border transition ${
-                    aiVoice === v.id
-                      ? "bg-[color:var(--neon-purple)]/20 border-[color:var(--neon-purple)] text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                className="btn-neon rounded-full px-5"
-                onClick={handleAiSpeak}
-                disabled={!text.trim() || aiLoading}
-              >
-                {aiLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
-                {aiLoading ? "Generating…" : "Generate AI Voice"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full px-5"
-                onClick={handleAiDownload}
-                disabled={!aiAudioUrl}
-              >
-                <Download className="h-4 w-4 mr-2" /> Download AI Audio
-              </Button>
-            </div>
-          </div>
         </section>
 
         <p className="text-center text-xs text-muted-foreground">
