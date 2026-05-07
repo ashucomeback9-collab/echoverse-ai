@@ -45,20 +45,16 @@ function Index() {
     if (!sayable) return;
     setHighlight(null);
     try {
-      // Natural human-like baseline: slightly slower, slightly lower pitch,
-      // sentence pauses for cinematic pacing.
-      const NATURAL_BASE = { rate: 0.9, pitch: 1.0, pause: 320 };
-      const baseRate = vibe?.rate ?? NATURAL_BASE.rate;
-      const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
-      const basePause = vibe?.pause ?? NATURAL_BASE.pause;
-      // Clamp to natural human-narrator range to avoid robotic extremes.
+      // User-controlled sliders take precedence. Vibe is applied only as a
+      // multiplier relative to the neutral 1.0 baseline so it nudges the
+      // user's chosen values instead of overriding them.
       const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-      const finalRate = clamp(baseRate, 0.85, 0.95);
-      // Male voices sound more natural and grounded with a slightly lower pitch.
-      // Female stays near baseline; auto leaves baseline untouched.
+      const rateMul = vibe?.rate ? vibe.rate / 0.9 : 1;
+      const pitchMul = vibe?.pitch ? vibe.pitch / 1.0 : 1;
       const pitchBias = gender === "male" ? 0.92 : gender === "female" ? 1.02 : 1;
-      const finalPitch = clamp(basePitch * pitchBias, 0.85, 1.05);
-      const finalPause = basePause;
+      const finalRate = clamp(rate * rateMul, 0.1, 10);
+      const finalPitch = clamp(pitch * pitchMul * pitchBias, 0, 2);
+      const finalPause = vibe?.pause ?? 320;
 
       if (musicOn) ambient.start(musicVolume);
       speak({
@@ -143,20 +139,21 @@ function Index() {
     recorder.start();
     // Begin speaking; stop the recorder when speech ends.
     setHighlight(null);
-    const NATURAL_BASE = { rate: 0.9, pitch: 1.0, pause: 320 };
-    const baseRate = vibe?.rate ?? NATURAL_BASE.rate;
-    const basePitch = vibe?.pitch ?? NATURAL_BASE.pitch;
-    const basePause = vibe?.pause ?? NATURAL_BASE.pause;
     const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+    const rateMul = vibe?.rate ? vibe.rate / 0.9 : 1;
+    const pitchMul = vibe?.pitch ? vibe.pitch / 1.0 : 1;
     const pitchBias = gender === "male" ? 0.92 : gender === "female" ? 1.02 : 1;
+    const finalRate = clamp(rate * rateMul, 0.1, 10);
+    const finalPitch = clamp(pitch * pitchMul * pitchBias, 0, 2);
+    const finalPause = vibe?.pause ?? 320;
     if (musicOn) ambient.start(musicVolume);
     speak({
       text: sayable,
       voice: selectedVoice ?? null,
-      rate: clamp(baseRate, 0.85, 0.95),
-      pitch: clamp(basePitch * pitchBias, 0.85, 1.05),
+      rate: finalRate,
+      pitch: finalPitch,
       volume: volume ?? 1,
-      sentencePause: basePause,
+      sentencePause: finalPause,
       commaPause: 100,
       leadInDelay: 350,
       tailDelay: 600,
