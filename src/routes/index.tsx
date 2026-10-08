@@ -70,6 +70,50 @@ const AI_PRESETS: AiPreset[] = [
   { id: "news", name: "News Reporter", description: "Crisp, neutral, professional.", rate: 1.0, pitch: 0.95, pause: 140, breath: 0.2, icon: BarChart3 },
 ];
 
+// Decode recorded webm/opus and re-encode as a real 16-bit PCM WAV file
+async function webmToWav(webmBlob: Blob): Promise<Blob> {
+  const arrayBuffer = await webmBlob.arrayBuffer();
+  const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new Ctx();
+  try {
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    const numChannels = Math.min(audioBuffer.numberOfChannels, 2);
+    const sampleRate = audioBuffer.sampleRate;
+    const length = audioBuffer.length * numChannels * 2;
+    const buffer = new ArrayBuffer(44 + length);
+    const view = new DataView(buffer);
+    const writeStr = (offset: number, s: string) => {
+      for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+    };
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + length, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, "data");
+    view.setUint32(40, length, true);
+    const channels: Float32Array[] = [];
+    for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c));
+    let offset = 44;
+    for (let i = 0; i < audioBuffer.length; i++) {
+      for (let c = 0; c < numChannels; c++) {
+        const sample = Math.max(-1, Math.min(1, channels[c][i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        offset += 2;
+      }
+    }
+    return new Blob([buffer], { type: "audio/wav" });
+  } finally {
+    void ctx.close();
+  }
+}
+
 const HOOK_IDEAS = [
   "Wait... you won't believe what happened next.",
   "Most people get this completely wrong — here's why.",
@@ -204,25 +248,52 @@ function Index() {
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     recorder.onstop = () => {
       audioStream.getTracks().forEach((t) => t.stop());
-      const blob = new Blob(chunks, { type: recMime });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const ext = mime === "wav" ? "wav" : "webm";
-      a.download = `voxwave-${Date.now()}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setRecording(false);
-      recorderRef.current = null;
+      void (async () => {
+        try {
+          const webmBlob = new Blob(chunks, { type: recMime });
+          let blob = webmBlob;
+          let ext = "webm";
+          if (mime === "wav") {
+            try {
+              blob = await webmToWav(webmBlob);
+              ext = "wav";
+            } catch { /* fall back to webm if decode fails */ }
+          }
+          if (blob.size === 0) {
+            alert("Nothing was recorded. Make sure 'Share tab audio' was enabled.");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `voxwave-${Date.now()}.${ext}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        } finally {
+          setRecording(false);
+          recorderRef.current = null;
+        }
+      })();
     };
     setRecording(true);
-    recorder.start();
-    void speakNow(() => {
+    recorder.start(250);
+    // Safety: never record longer than 3 minutes
+    const safetyTimer = window.setTimeout(() => {
       if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        stop();
         recorderRef.current.stop();
       }
+    }, 180000);
+    void speakNow(() => {
+      window.clearTimeout(safetyTimer);
+      // Small delay so the final words are fully captured
+      window.setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state !== "inactive") {
+          recorderRef.current.stop();
+        }
+      }, 600);
     });
   };
 
@@ -511,7 +582,7 @@ function Index() {
                       <div className="flex flex-wrap gap-2">
                         <Button variant="outline" size="sm" className="rounded-full" onClick={() => handleDownload("webm")} disabled={!text.trim() || recording || status !== "idle"}>
                           {recording ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-                          MP3
+                          WebM
                         </Button>
                         <Button variant="outline" size="sm" className="rounded-full" onClick={() => handleDownload("wav")} disabled={!text.trim() || recording || status !== "idle"}>
                           <Download className="h-4 w-4 mr-1" /> WAV
