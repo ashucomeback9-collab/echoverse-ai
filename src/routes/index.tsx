@@ -204,25 +204,52 @@ function Index() {
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     recorder.onstop = () => {
       audioStream.getTracks().forEach((t) => t.stop());
-      const blob = new Blob(chunks, { type: recMime });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const ext = mime === "wav" ? "wav" : "webm";
-      a.download = `voxwave-${Date.now()}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setRecording(false);
-      recorderRef.current = null;
+      void (async () => {
+        try {
+          const webmBlob = new Blob(chunks, { type: recMime });
+          let blob = webmBlob;
+          let ext = "webm";
+          if (mime === "wav") {
+            try {
+              blob = await webmToWav(webmBlob);
+              ext = "wav";
+            } catch { /* fall back to webm if decode fails */ }
+          }
+          if (blob.size === 0) {
+            alert("Nothing was recorded. Make sure 'Share tab audio' was enabled.");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `voxwave-${Date.now()}.${ext}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        } finally {
+          setRecording(false);
+          recorderRef.current = null;
+        }
+      })();
     };
     setRecording(true);
-    recorder.start();
-    void speakNow(() => {
+    recorder.start(250);
+    // Safety: never record longer than 3 minutes
+    const safetyTimer = window.setTimeout(() => {
       if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        stop();
         recorderRef.current.stop();
       }
+    }, 180000);
+    void speakNow(() => {
+      window.clearTimeout(safetyTimer);
+      // Small delay so the final words are fully captured
+      window.setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state !== "inactive") {
+          recorderRef.current.stop();
+        }
+      }, 600);
     });
   };
 
