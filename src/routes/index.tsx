@@ -582,7 +582,7 @@ function Index() {
                       <div className="flex flex-wrap gap-2">
                         <Button variant="outline" size="sm" className="rounded-full" onClick={() => handleDownload("webm")} disabled={!text.trim() || recording || status !== "idle"}>
                           {recording ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-                          MP3
+                          WebM
                         </Button>
                         <Button variant="outline" size="sm" className="rounded-full" onClick={() => handleDownload("wav")} disabled={!text.trim() || recording || status !== "idle"}>
                           <Download className="h-4 w-4 mr-1" /> WAV
