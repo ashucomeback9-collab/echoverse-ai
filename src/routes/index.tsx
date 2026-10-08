@@ -490,6 +490,16 @@ function Index() {
                       <Button size="lg" variant="ghost" className="rounded-full px-6" onClick={handleSpeak} disabled={!text.trim()}>
                         <RotateCcw className="h-4 w-4 mr-2" /> Regenerate
                       </Button>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="rounded-full px-6 border-[color:var(--neon-blue)]/50 text-[color:var(--neon-blue)] hover:bg-[color:var(--neon-blue)]/10"
+                        onClick={() => handleDownload("webm")}
+                        disabled={!text.trim() || recording || status !== "idle"}
+                      >
+                        {recording ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                        {recording ? "Recording…" : "Download Audio"}
+                      </Button>
                     </div>
 
                     {/* Export */}
